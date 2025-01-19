@@ -1,16 +1,4 @@
 services:
-  collector:
-    image: grafana/grafana:latest
-    command:
-    - --config=/conf/config.yaml
-    volumes:
-    - ./otel/config.yaml:/conf/config.yaml
-    ports:
-      - "4317:4317"  # otlp grpc
-      - "4318:4318"  # otlp http
-    networks:
-    - o11y
-
   grafana:
     environment:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
@@ -43,6 +31,8 @@ services:
     ports:
       - "3200:3200"   # tempo
       - "9095:9095" # tempo grpc
+      - "4317:4317"  # otlp grpc
+      - "4318:4318"  # otlp http
     networks:
     - o11y
 
