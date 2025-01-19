@@ -1,0 +1,55 @@
+services:
+  grafana:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    image: grafana/grafana:latest
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+    - "3000:3000"
+    networks:
+    - o11y
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+    - --config.file=/etc/prometheus.yaml
+    - --web.enable-remote-write-receiver
+    ports:
+    - "9090:9090"
+    volumes:
+    - ./prometheus/prometheus.yaml:/etc/prometheus.yaml
+    networks:
+    - o11y
+
+  tempo:
+    image: grafana/tempo:latest
+    command:
+    - -config.file=/etc/tempo.yaml
+    volumes:
+    - ./tempo.yaml:/etc/tempo.yaml
+    ports:
+      - "14268:14268"  # jaeger ingest
+      - "3200:3200"   # tempo
+      - "9095:9095" # tempo grpc
+      - "4317:4317"  # otlp grpc
+      - "4318:4318"  # otlp http
+    depends_on:
+      - init
+      - memcached
+    networks:
+    - o11y
+
+  loki:
+    image: grafana/loki:latest
+    ports:
+    - "3100:3100"
+    #command: -config.file=/etc/loki/local-config.yaml
+    networks:
+    - o11y
+
+
+
+
+networks:
+  o11y:
