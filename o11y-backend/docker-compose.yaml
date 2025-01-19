@@ -1,6 +1,6 @@
 services:
   collector:
-    image: grafana/grafana:latest
+    image: otel/opentelemetry-collector-contrib:latest
     command:
     - --config=/conf/config.yaml
     volumes:
@@ -39,7 +39,7 @@ services:
     command:
     - -config.file=/etc/tempo.yaml
     volumes:
-    - ./tempo.yaml:/etc/tempo.yaml
+    - ./tempo/tempo.yaml:/etc/tempo.yaml
     ports:
       - "3200:3200"   # tempo
       - "9095:9095" # tempo grpc
