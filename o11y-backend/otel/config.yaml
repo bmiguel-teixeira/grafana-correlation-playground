@@ -2,9 +2,9 @@ receivers:
   otlp:
     protocols:
       grpc:
-        endpoint: 0.0.0.0:4317
+        endpoint: 0.0.0.0:14317
       http:
-        endpoint: 0.0.0.0:4318
+        endpoint: 0.0.0.0:14318
 processors:
   batch:
 
@@ -16,7 +16,7 @@ exporters:
     retry_on_failure:
       enabled: false
   otlphttp/tempo:
-    endpoint: http://tempo:3100
+    endpoint: http://tempo:4318
     tls:
       insecure: true
   otlphttp/loki:
