@@ -16,7 +16,8 @@ services:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     image: grafana/grafana:latest
     volumes:
-      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
     ports:
     - "3000:3000"
     networks:
@@ -56,8 +57,18 @@ services:
     networks:
     - o11y
 
-
-
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor
+    ports:
+    - "8080:8080"
+    volumes:
+    - "/:/rootfs:ro"
+    - "/var/run:/var/run:ro"
+    - "/sys:/sys:ro"
+    - "/var/lib/docker/:/var/lib/docker:ro"
+    - "/dev/disk/:/dev/disk:ro"
+    networks:
+    - o11y
 
 networks:
   o11y:
