@@ -2,14 +2,22 @@ package otel
 
 import (
 	"context"
-	"errors"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
+	"time"
 
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/sdk/log"
+	metricsdk "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
@@ -18,11 +26,42 @@ import (
 )
 
 type OtelClient struct {
-	Tracer *sdktrace.TracerProvider
+	Ctx                   context.Context
+	Tracer                *sdktrace.TracerProvider
+	Metrics               *metricsdk.MeterProvider
+	HttpRequestTotalMeter metric.Int64Counter
+	Logger                *slog.Logger
 }
 
 func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
-	return http.DefaultTransport.RoundTrip(req)
+	start := time.Now()
+	tracer := otc.Tracer.Tracer("opentelemetry.io/sdk")
+	_, span := tracer.Start(
+		otc.Ctx,
+		fmt.Sprintf("%s %s", req.Method, req.URL.Path),
+		trace.WithAttributes(
+			attribute.String("hostname", req.Host),
+		),
+	)
+	defer span.End()
+
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
+	}
+
+	elapsed := time.Since(start)
+	otc.Logger.Info(
+		fmt.Sprintf("Request: %s %s in %d miliseconds", req.Method, req.URL.Path, elapsed.Milliseconds()),
+	)
+	fmt.Println(elapsed)
+
+	otc.HttpRequestTotalMeter.Add(otc.Ctx, 1, metric.WithAttributes(
+		attribute.String("method", req.Method),
+		attribute.String("path", req.URL.Path),
+		attribute.String("code", resp.Status),
+	))
+	return resp, err
 }
 
 func NewOtelClient(ctx context.Context, collectorUrl string, attr ...attribute.KeyValue) (*OtelClient, error) {
@@ -43,52 +82,61 @@ func NewOtelClient(ctx context.Context, collectorUrl string, attr ...attribute.K
 		return nil, err
 	}
 
+	metricsExporter, err := otlpmetricgrpc.New(ctx,
+		otlpmetricgrpc.WithEndpoint("localhost:14317"),
+		otlpmetricgrpc.WithInsecure(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not create metric exporter: %w", err)
+	}
+	logExporter, err := otlploggrpc.New(ctx,
+		otlploggrpc.WithEndpoint("localhost:14317"),
+		otlploggrpc.WithInsecure(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not create metric exporter: %w", err)
+	}
+
+	periodicReader := metricsdk.NewPeriodicReader(metricsExporter, metricsdk.WithInterval(5*time.Second))
+
 	batchSpanProcessor := sdktrace.NewBatchSpanProcessor(exporter)
-	tracerProvider := newTraceProvider(res, batchSpanProcessor)
-	otel.SetTracerProvider(tracerProvider)
-
-	return &OtelClient{
-		Tracer: tracerProvider,
-	}, nil
-}
-
-func newTraceProvider(res *resource.Resource, bsp sdktrace.SpanProcessor) *sdktrace.TracerProvider {
 	tracerProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithResource(res),
-		sdktrace.WithSpanProcessor(bsp),
+		sdktrace.WithSpanProcessor(batchSpanProcessor),
 	)
-	return tracerProvider
+	metricsProvider := metricsdk.NewMeterProvider(
+		metricsdk.WithResource(res),
+		metricsdk.WithReader(periodicReader),
+	)
+	metricsProvider.Meter("tracetest")
+
+	lp := log.NewLoggerProvider(
+		log.WithProcessor(
+			log.NewBatchProcessor(logExporter),
+		),
+		log.WithResource(res),
+	)
+	global.SetLoggerProvider(lp)
+	logger := otelslog.NewLogger("asd")
+	logger.Info("Logger started")
+
+	otel.SetTracerProvider(tracerProvider)
+
+	c, err := metricsProvider.Meter("asdsda").Int64Counter("http.requests.total")
+	if err != nil {
+		return nil, err
+	}
+	return &OtelClient{
+		Ctx:                   ctx,
+		Tracer:                tracerProvider,
+		Metrics:               metricsProvider,
+		HttpRequestTotalMeter: c,
+		Logger:                logger,
+	}, nil
 }
 
-func parentFunction(ctx context.Context, tracer trace.Tracer) {
-	ctx, parentSpan := tracer.Start(
-		ctx,
-		"parentSpanName",
-		trace.WithAttributes(attribute.String("parentAttributeKey1", "parentAttributeValue1")))
-
-	parentSpan.AddEvent("ParentSpan-Event")
-	log.Printf("In parent span, before calling a child function.")
-
-	defer parentSpan.End()
-
-	childFunction(ctx, tracer)
-
-	log.Printf("In parent span, after calling a child function. When this function ends, parentSpan will complete.")
-}
-
-func childFunction(ctx context.Context, tracer trace.Tracer) {
-	ctx, childSpan := tracer.Start(
-		ctx,
-		"childSpanName",
-		trace.WithAttributes(attribute.String("childAttributeKey1", "childAttributeValue1")))
-
-	childSpan.AddEvent("ChildSpan-Event")
-	defer childSpan.End()
-
-	log.Printf("In child span, when this function returns, childSpan will complete.")
-}
-
+/*
 func exceptionFunction(ctx context.Context, tracer trace.Tracer) {
 	ctx, exceptionSpan := tracer.Start(
 		ctx,
@@ -102,10 +150,4 @@ func exceptionFunction(ctx context.Context, tracer trace.Tracer) {
 		exceptionSpan.SetStatus(codes.Error, err.Error())
 	}
 }
-
-func divide(x int, y int) (int, error) {
-	if y == 0 {
-		return -1, errors.New("division by zero")
-	}
-	return x / y, nil
-}
+*/

@@ -9,6 +9,10 @@ processors:
   batch:
 
 exporters:
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
   prometheusremotewrite:
     endpoint: "http://prometheus:9090/api/v1/write"
     remote_write_queue:
@@ -20,7 +24,7 @@ exporters:
     tls:
       insecure: true
   otlphttp/loki:
-    endpoint: http://tempo:3100/otlp
+    endpoint: http://loki:3100/otlp
     tls:
       insecure: true
 
@@ -31,17 +35,20 @@ extensions:
   zpages:
 
 service:
+  telemetry:
+    logs:
+      level: "DEBUG"
   extensions: [health_check, pprof, zpages]
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: []
       exporters: [otlphttp/tempo]
     metrics:
       receivers: [otlp]
-      processors: [batch]
+      processors: []
       exporters: [prometheusremotewrite]
     logs:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [otlphttp/loki]
+      processors: []
+      exporters: [debug, otlphttp/loki]

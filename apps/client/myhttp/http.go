@@ -18,7 +18,7 @@ func NewHttpClient(otc *myotel.OtelClient) (*http.Client, error) {
 	}, nil
 }
 
-func get(url string, client *http.Client) {
+func Get(url string, client *http.Client) {
 	start := time.Now()
 	resp, http_err := client.Get(url)
 

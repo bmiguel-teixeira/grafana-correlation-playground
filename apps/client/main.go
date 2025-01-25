@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"net/http"
+	"time"
 
 	myotel "client/internal/otel"
-	"client/myhttp"
 
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
@@ -23,11 +23,11 @@ func main() {
 		panic(err)
 	}
 
-	httpClient, err := myhttp.NewHttpClient(otelClient)
-	if err != nil {
-		panic(err)
+	x := http.Client{
+		Transport: otelClient,
 	}
-	httpClient.Get("https://jn.pt")
-
-	fmt.Println(otelClient)
+	for {
+		x.Get("https://jn.pt/")
+		time.Sleep(500 * time.Millisecond)
+	}
 }
