@@ -30,11 +30,12 @@ var (
 )
 
 type OtelClient struct {
-	Ctx                   context.Context
-	Tracer                *sdktrace.TracerProvider
-	Metrics               *metricsdk.MeterProvider
-	HttpRequestTotalMeter metric.Int64Counter
-	Logger                *slog.Logger
+	Ctx                    context.Context
+	Tracer                 *sdktrace.TracerProvider
+	Metrics                *metricsdk.MeterProvider
+	PostgreSqlQueriesTotal metric.Int64Counter
+	HttpRequestTotalMeter  metric.Int64Counter
+	Logger                 *slog.Logger
 }
 
 func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -52,7 +53,6 @@ func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	parentId := req.Header.Get(OTEL_TRACE_HEADER)
 	if parentId == "" {
 		req.Header.Set(OTEL_TRACE_HEADER, span.SpanContext().TraceID().String())
-		parentId = span.SpanContext().TraceID().String()
 	} else {
 		traceID, _ := trace.TraceIDFromHex(parentId)
 		// Create a SpanContext with the received trace ID and span ID
@@ -62,21 +62,16 @@ func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
 			TraceFlags: trace.FlagsSampled, // Ensures it is recorded
 			Remote:     true,               // Marks it as a remote parent span
 		})
-		otc.Ctx = trace.ContextWithSpanContext(context.Background(), parentSpanContext)
+		otc.Ctx = trace.ContextWithSpanContext(otc.Ctx, parentSpanContext)
 	}
 
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	elapsed := time.Since(start)
-
-	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
-		otc.Logger.Error(
-			fmt.Sprintf("Request for book reservation failed in %d miliseconds", elapsed.Milliseconds()),
-			slog.String("TraceId", parentId),
-			slog.String("SpanId", span.SpanContext().TraceID().String()),
-		)
-		return nil, err
-	}
+	otc.Logger.Info(
+		fmt.Sprintf("Request: %s %s in %d miliseconds", req.Method, req.URL.Path, elapsed.Milliseconds()),
+		slog.String("TraceId", parentId),
+		slog.String("SpanId", span.SpanContext().TraceID().String()),
+	)
 
 	status := "-1"
 	if resp != nil {
@@ -87,22 +82,10 @@ func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		attribute.String("path", req.URL.Path),
 		attribute.String("code", status),
 	))
-
-	if status != "200" {
-		span.SetStatus(codes.Error, fmt.Sprintf("Server returned [%d]", resp.StatusCode))
-		otc.Logger.Error(
-			fmt.Sprintf("Request for book reservation failed in %d miliseconds", elapsed.Milliseconds()),
-			slog.String("TraceId", parentId),
-			slog.String("SpanId", span.SpanContext().TraceID().String()),
-		)
-		return resp, nil
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
 	}
 
-	otc.Logger.Info(
-		fmt.Sprintf("Request for book reservation succeded in %d miliseconds", elapsed.Milliseconds()),
-		slog.String("TraceId", parentId),
-		slog.String("SpanId", span.SpanContext().TraceID().String()),
-	)
 	return resp, err
 }
 
@@ -165,15 +148,20 @@ func NewOtelClient(ctx context.Context, collectorUrl string, attr ...attribute.K
 
 	otel.SetTracerProvider(tracerProvider)
 
-	c, err := metricsProvider.Meter("asdsda").Int64Counter("http.requests.total")
+	c, err := metricsProvider.Meter("asdsda").Int64Counter("db.queries.total")
+	if err != nil {
+		return nil, err
+	}
+	chttp, err := metricsProvider.Meter("asdsda").Int64Counter("db.queries.total")
 	if err != nil {
 		return nil, err
 	}
 	return &OtelClient{
-		Ctx:                   ctx,
-		Tracer:                tracerProvider,
-		Metrics:               metricsProvider,
-		HttpRequestTotalMeter: c,
-		Logger:                logger,
+		Ctx:                    ctx,
+		Tracer:                 tracerProvider,
+		Metrics:                metricsProvider,
+		PostgreSqlQueriesTotal: c,
+		HttpRequestTotalMeter:  chttp,
+		Logger:                 logger,
 	}, nil
 }

@@ -52,32 +52,19 @@ func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	parentId := req.Header.Get(OTEL_TRACE_HEADER)
 	if parentId == "" {
 		req.Header.Set(OTEL_TRACE_HEADER, span.SpanContext().TraceID().String())
-		parentId = span.SpanContext().TraceID().String()
 	} else {
 		traceID, _ := trace.TraceIDFromHex(parentId)
-		// Create a SpanContext with the received trace ID and span ID
 		parentSpanContext := trace.NewSpanContext(trace.SpanContextConfig{
 			TraceID:    traceID,
 			SpanID:     span.SpanContext().SpanID(),
-			TraceFlags: trace.FlagsSampled, // Ensures it is recorded
-			Remote:     true,               // Marks it as a remote parent span
+			TraceFlags: trace.FlagsSampled,
+			Remote:     true,
 		})
-		otc.Ctx = trace.ContextWithSpanContext(context.Background(), parentSpanContext)
+		otc.Ctx = trace.ContextWithSpanContext(otc.Ctx, parentSpanContext)
 	}
 
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	elapsed := time.Since(start)
-
-	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
-		otc.Logger.Error(
-			fmt.Sprintf("Request for book reservation failed in %d miliseconds", elapsed.Milliseconds()),
-			slog.String("TraceId", parentId),
-			slog.String("SpanId", span.SpanContext().TraceID().String()),
-		)
-		return nil, err
-	}
-
 	status := "-1"
 	if resp != nil {
 		status = fmt.Sprintf("%d", resp.StatusCode)
@@ -88,18 +75,29 @@ func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		attribute.String("code", status),
 	))
 
-	if status != "200" {
-		span.SetStatus(codes.Error, fmt.Sprintf("Server returned [%d]", resp.StatusCode))
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
 		otc.Logger.Error(
-			fmt.Sprintf("Request for book reservation failed in %d miliseconds", elapsed.Milliseconds()),
+			fmt.Sprintf("Request for [%s] failed in %d miliseconds", req.URL.Path, elapsed.Milliseconds()),
 			slog.String("TraceId", parentId),
 			slog.String("SpanId", span.SpanContext().TraceID().String()),
 		)
-		return resp, nil
+		return nil, err
+
+	}
+
+	if status != "200" {
+		span.SetStatus(codes.Error, fmt.Sprintf("Server returned [%d]", resp.StatusCode))
+		otc.Logger.Error(
+			fmt.Sprintf("Request for [%s] failed in %d miliseconds", req.URL.Path, elapsed.Milliseconds()),
+			slog.String("TraceId", parentId),
+			slog.String("SpanId", span.SpanContext().TraceID().String()),
+		)
+		return nil, err
 	}
 
 	otc.Logger.Info(
-		fmt.Sprintf("Request for book reservation succeded in %d miliseconds", elapsed.Milliseconds()),
+		fmt.Sprintf("Request for [%s] succeded in %d miliseconds", req.URL.Path, elapsed.Milliseconds()),
 		slog.String("TraceId", parentId),
 		slog.String("SpanId", span.SpanContext().TraceID().String()),
 	)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -9,6 +10,10 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+)
+
+var (
+	APP1_URL = "http://localhost:8081/reserve"
 )
 
 func main() {
@@ -27,7 +32,10 @@ func main() {
 		Transport: otelClient,
 	}
 	for {
-		x.Get("https://jn.pt/")
-		time.Sleep(500 * time.Millisecond)
+		_, err := x.Get(APP1_URL)
+		if err != nil {
+			fmt.Println(err)
+			time.Sleep(1 * time.Millisecond)
+		}
 	}
 }
