@@ -27,6 +27,7 @@ import (
 
 var (
 	OTEL_TRACE_HEADER = "x-otel-custom-id"
+	OTEL_SPAN_HEADER  = "x-otel-span-id"
 )
 
 type OtelClient struct {
@@ -40,8 +41,20 @@ type OtelClient struct {
 func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
 	tracer := otc.Tracer.Tracer("opentelemetry.io/sdk")
+	parentId := req.Header.Get(OTEL_TRACE_HEADER)
+	spanId := req.Header.Get(OTEL_SPAN_HEADER)
+
+	traceID, _ := trace.TraceIDFromHex(parentId)
+	spanID, _ := trace.SpanIDFromHex(spanId)
+	parentSpanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), parentSpanContext)
+
 	_, span := tracer.Start(
-		otc.Ctx,
+		ctx,
 		fmt.Sprintf("%s %s", req.Method, req.URL.Path),
 		trace.WithAttributes(
 			attribute.String("hostname", req.Host),
@@ -49,19 +62,8 @@ func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	)
 	defer span.End()
 
-	parentId := req.Header.Get(OTEL_TRACE_HEADER)
-	if parentId == "" {
-		req.Header.Set(OTEL_TRACE_HEADER, span.SpanContext().TraceID().String())
-	} else {
-		traceID, _ := trace.TraceIDFromHex(parentId)
-		parentSpanContext := trace.NewSpanContext(trace.SpanContextConfig{
-			TraceID:    traceID,
-			SpanID:     span.SpanContext().SpanID(),
-			TraceFlags: trace.FlagsSampled,
-			Remote:     true,
-		})
-		otc.Ctx = trace.ContextWithSpanContext(otc.Ctx, parentSpanContext)
-	}
+	req.Header.Set(OTEL_TRACE_HEADER, parentId)
+	req.Header.Set(OTEL_SPAN_HEADER, span.SpanContext().SpanID().String())
 
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	elapsed := time.Since(start)

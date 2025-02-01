@@ -47,26 +47,28 @@ func runRawQuery(db *sql.DB, query string) (*sql.Rows, *pq.Error, error) {
 	return rows, nil, nil
 }
 
-func queryDB(db *sql.DB, otc *myotel.OtelClient, parentId string) (int, error) {
+func queryDB(db *sql.DB, otc *myotel.OtelClient, traceId string, spanId string) (int, error) {
 	QUERY := "SELECT * FROM books"
 	start := time.Now()
+
+	traceID, _ := trace.TraceIDFromHex(traceId)
+	spanID, _ := trace.SpanIDFromHex(spanId)
+	parentSpanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), parentSpanContext)
+
 	tracer := otc.Tracer.Tracer("opentelemetry.io/sdk")
 	_, span := tracer.Start(
-		otc.Ctx,
+		ctx,
 		"POSTGRESQL",
 		trace.WithAttributes(
 			attribute.String("db", "/check-reservation"),
 			attribute.String("query", QUERY),
 		),
 	)
-	traceID, _ := trace.TraceIDFromHex(parentId)
-	parentSpanContext := trace.NewSpanContext(trace.SpanContextConfig{
-		TraceID:    traceID,
-		SpanID:     span.SpanContext().SpanID(),
-		TraceFlags: trace.FlagsSampled,
-		Remote:     true,
-	})
-	otc.Ctx = trace.ContextWithSpanContext(otc.Ctx, parentSpanContext)
 	defer span.End()
 
 	if BROKEN {
@@ -78,7 +80,7 @@ func queryDB(db *sql.DB, otc *myotel.OtelClient, parentId string) (int, error) {
 		))
 		otc.Logger.Error(
 			fmt.Sprintf("Database query [%s] failed in %d miliseconds with [%s]", QUERY, time.Since(start), errorMsg),
-			slog.String("TraceId", parentId),
+			slog.String("TraceId", traceId),
 			slog.String("SpanId", span.SpanContext().TraceID().String()),
 		)
 		return 0, errorMsg
@@ -107,13 +109,13 @@ func queryDB(db *sql.DB, otc *myotel.OtelClient, parentId string) (int, error) {
 	if err != nil || BROKEN {
 		otc.Logger.Error(
 			fmt.Sprintf("Database query [%s] failed in %d miliseconds", QUERY, elapsed.Milliseconds()),
-			slog.String("TraceId", parentId),
+			slog.String("TraceId", traceId),
 			slog.String("SpanId", span.SpanContext().TraceID().String()),
 		)
 	} else {
 		otc.Logger.Info(
 			fmt.Sprintf("Database query [%s] succeded in %d miliseconds", QUERY, elapsed.Milliseconds()),
-			slog.String("TraceId", parentId),
+			slog.String("TraceId", traceId),
 			slog.String("SpanId", span.SpanContext().TraceID().String()),
 		)
 	}
@@ -160,7 +162,7 @@ func setupDB(db *sql.DB) error {
 }
 
 func (l *LibraryClient) GetBook(w http.ResponseWriter, r *http.Request) {
-	count, err := queryDB(l.DbClient, l.OtelClient, r.Header.Get(myotel.OTEL_TRACE_HEADER))
+	count, err := queryDB(l.DbClient, l.OtelClient, r.Header.Get(myotel.OTEL_TRACE_HEADER), r.Header.Get(myotel.OTEL_SPAN_HEADER))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, err.Error())

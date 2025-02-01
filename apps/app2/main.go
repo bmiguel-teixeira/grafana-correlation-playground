@@ -16,6 +16,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+var (
+	OTEL_SPAN_HEADER = "x-otel-span-id"
+)
+
 type app2 struct {
 	HttpClient *http.Client
 	otc        *myotel.OtelClient
@@ -24,9 +28,20 @@ type app2 struct {
 func (a *app2) GetBook(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	traceId := r.Header.Get(myotel.OTEL_TRACE_HEADER)
+	spanId := r.Header.Get(myotel.OTEL_SPAN_HEADER)
+
+	traceID, _ := trace.TraceIDFromHex(traceId)
+	spanID, _ := trace.SpanIDFromHex(spanId)
+	parentSpanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), parentSpanContext)
+
 	tracer := a.otc.Tracer.Tracer("opentelemetry.io/sdk")
 	_, span := tracer.Start(
-		a.otc.Ctx,
+		ctx,
 		"/available",
 		trace.WithAttributes(
 			attribute.String("hostname", "locahost"),
@@ -34,15 +49,6 @@ func (a *app2) GetBook(w http.ResponseWriter, r *http.Request) {
 	)
 	defer span.End()
 	time.Sleep(200 * time.Millisecond)
-
-	traceID, _ := trace.TraceIDFromHex(traceId)
-	parentSpanContext := trace.NewSpanContext(trace.SpanContextConfig{
-		TraceID:    traceID,
-		SpanID:     span.SpanContext().SpanID(),
-		TraceFlags: trace.FlagsSampled,
-		Remote:     true,
-	})
-	a.otc.Ctx = trace.ContextWithSpanContext(context.Background(), parentSpanContext)
 
 	elapsed := time.Since(start)
 	a.otc.Logger.Info(

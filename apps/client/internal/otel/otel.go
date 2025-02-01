@@ -27,6 +27,7 @@ import (
 
 var (
 	OTEL_TRACE_HEADER = "x-otel-custom-id"
+	OTEL_SPAN_HEADER  = "x-otel-span-id"
 )
 
 type OtelClient struct {
@@ -52,6 +53,7 @@ func (otc *OtelClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	parentId := req.Header.Get(OTEL_TRACE_HEADER)
 	if parentId == "" {
 		req.Header.Set(OTEL_TRACE_HEADER, span.SpanContext().TraceID().String())
+		req.Header.Set(OTEL_SPAN_HEADER, span.SpanContext().SpanID().String())
 		parentId = span.SpanContext().TraceID().String()
 	} else {
 		traceID, _ := trace.TraceIDFromHex(parentId)

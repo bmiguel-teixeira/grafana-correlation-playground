@@ -25,16 +25,19 @@ var (
 
 func (a *App1) GetBook(w http.ResponseWriter, r *http.Request) {
 	traceId := r.Header.Get(myotel.OTEL_TRACE_HEADER)
+	spanId := r.Header.Get(myotel.OTEL_SPAN_HEADER)
 	time.Sleep(100 * time.Millisecond)
 
 	// request to apps 2
 	req2, err := http.NewRequest("GET", APP2_URL, nil)
 	req2.Header.Set(myotel.OTEL_TRACE_HEADER, traceId)
+	req2.Header.Set(myotel.OTEL_SPAN_HEADER, spanId)
 	resp2, err2 := a.HttpClient.Do(req2)
 
 	// request to apps 3
 	req3, err := http.NewRequest("GET", APP3_URL, nil)
 	req3.Header.Set(myotel.OTEL_TRACE_HEADER, traceId)
+	req3.Header.Set(myotel.OTEL_SPAN_HEADER, spanId)
 	resp3, err3 := a.HttpClient.Do(req3)
 
 	if err != nil || err2 != nil || err3 != nil || resp2.StatusCode != 200 || resp3.StatusCode != 200 {

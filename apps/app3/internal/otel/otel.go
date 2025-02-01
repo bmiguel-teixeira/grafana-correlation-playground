@@ -27,6 +27,7 @@ import (
 
 var (
 	OTEL_TRACE_HEADER = "x-otel-custom-id"
+	OTEL_SPAN_HEADER  = "x-otel-span-id"
 )
 
 type OtelClient struct {
