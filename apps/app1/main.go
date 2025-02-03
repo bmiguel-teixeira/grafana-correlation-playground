@@ -19,8 +19,8 @@ type App1 struct {
 }
 
 var (
-	APP2_URL = "http://localhost:8082/available"
-	APP3_URL = "http://localhost:8083/reserve"
+	APP2_URL = "http://app2:8082/available"
+	APP3_URL = "http://app3:8083/reserve"
 )
 
 func (a *App1) GetBook(w http.ResponseWriter, r *http.Request) {
@@ -52,10 +52,11 @@ func (a *App1) GetBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	fmt.Println("Starting app")
 	ctx := context.TODO()
 	otelClient, err := myotel.NewOtelClient(
 		ctx,
-		"localhost:14317",
+		"collector:14317",
 		semconv.ServiceNameKey.String("app1"),
 		attribute.String("version", "1.0.0"),
 	)

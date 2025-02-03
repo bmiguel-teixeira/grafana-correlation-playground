@@ -1,4 +1,35 @@
 services:
+  client:
+    image: client:1.0
+    build:
+      context: client
+    networks:
+    - o11y
+  app1:
+    image: app1:1.0
+    build:
+      context: app1
+    ports:
+    - 8081:8081
+    networks:
+    - o11y
+  app2:
+    image: app2:1.0
+    build:
+      context: app2
+    ports:
+    - 8082:8082
+    networks:
+    - o11y
+  app3:
+    image: app3:1.0
+    build:
+      context: app3
+    ports:
+    - 8083:8083
+    restart: always
+    networks:
+    - o11y
   postgres:
     image: postgres:14-alpine
     ports:
@@ -9,5 +40,15 @@ services:
     - POSTGRES_DB=library
     networks:
     - o11y
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p ${POSTGRES_PASSWORD}'"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 1s
+
+
 networks:
   o11y:
+    name: o11y
+    external: true

@@ -31,7 +31,7 @@ var (
 )
 
 const (
-	CONN_STRING = "host=localhost port=5432 user=app3 password=S3cret dbname=library sslmode=disable"
+	CONN_STRING = "host=postgres port=5432 user=app3 password=S3cret dbname=library sslmode=disable"
 )
 
 func runRawQuery(db *sql.DB, query string) (*sql.Rows, *pq.Error, error) {
@@ -180,10 +180,11 @@ func toggleFailure(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	fmt.Println("Starting app")
 	ctx := context.TODO()
 	otelClient, err := myotel.NewOtelClient(
 		ctx,
-		"localhost:14317",
+		"collector:14317",
 		semconv.ServiceNameKey.String("app3"),
 		attribute.String("version", "1.0.0"),
 	)

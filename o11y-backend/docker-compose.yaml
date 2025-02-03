@@ -73,3 +73,5 @@ services:
 
 networks:
   o11y:
+    name: o11y
+    external: true

@@ -67,10 +67,11 @@ func (a *app2) GetBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	fmt.Println("Starting app")
 	ctx := context.TODO()
 	otelClient, err := myotel.NewOtelClient(
 		ctx,
-		"localhost:14317",
+		"collector:14317",
 		semconv.ServiceNameKey.String("app2"),
 		attribute.String("version", "1.0.0"),
 	)

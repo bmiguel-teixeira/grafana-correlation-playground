@@ -109,14 +109,14 @@ func NewOtelClient(ctx context.Context, collectorUrl string, attr ...attribute.K
 	}
 
 	metricsExporter, err := otlpmetricgrpc.New(ctx,
-		otlpmetricgrpc.WithEndpoint("localhost:14317"),
+		otlpmetricgrpc.WithEndpoint("collector:14317"),
 		otlpmetricgrpc.WithInsecure(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not create metric exporter: %w", err)
 	}
 	logExporter, err := otlploggrpc.New(ctx,
-		otlploggrpc.WithEndpoint("localhost:14317"),
+		otlploggrpc.WithEndpoint("collector:14317"),
 		otlploggrpc.WithInsecure(),
 	)
 	if err != nil {

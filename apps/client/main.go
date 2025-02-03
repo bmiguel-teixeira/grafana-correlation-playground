@@ -13,14 +13,15 @@ import (
 )
 
 var (
-	APP1_URL = "http://localhost:8081/reserve"
+	APP1_URL = "http://app1:8081/reserve"
 )
 
 func main() {
+	fmt.Println("Starting app")
 	ctx := context.TODO()
 	otelClient, err := myotel.NewOtelClient(
 		ctx,
-		"localhost:14317",
+		"collector:14317",
 		semconv.ServiceNameKey.String("client"),
 		attribute.String("version", "1.0.0"),
 	)
