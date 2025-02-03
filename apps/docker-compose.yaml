@@ -19,6 +19,10 @@ services:
       context: app2
     ports:
     - 8082:8082
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
     networks:
     - o11y
   app3:

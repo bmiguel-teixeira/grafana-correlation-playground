@@ -66,6 +66,18 @@ func (a *app2) GetBook(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "GOOD!")
 }
 
+func toggleFailure(w http.ResponseWriter, r *http.Request) {
+	for range 100 {
+		go func() {
+			i := 0
+			for {
+				i++
+			}
+		}()
+	}
+	io.WriteString(w, "BOOM?")
+}
+
 func main() {
 	fmt.Println("Starting app")
 	ctx := context.TODO()
@@ -83,6 +95,7 @@ func main() {
 		otc: otelClient,
 	}
 	http.HandleFunc("/available", app2.GetBook)
+	http.HandleFunc("/toggle", toggleFailure)
 	err = http.ListenAndServe(":8082", nil)
 	if err != nil {
 		panic(err)

@@ -27,10 +27,10 @@ datasources:
       name: "TraceId"
       url: "$${__value.raw}"
       urlDisplayLabel: "View Trace"
-    - matcherRegex: TraceId # TDB
+    - matcherRegex: service_name
       matcherType: label
-      name: host
-      url: http://localhost:3000/d/http_requests/http-requests?var-application=$${__value.raw}
+      name: Host
+      url: http://localhost:3000/d/cadvisor/cadvisor?var-container=apps-$${__value.raw}-1
       urlDisplayLabels: View Host Metrics
 - name: Tempo
   type: tempo

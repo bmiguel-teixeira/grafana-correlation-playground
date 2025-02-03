@@ -123,7 +123,7 @@ func NewOtelClient(ctx context.Context, collectorUrl string, attr ...attribute.K
 		return nil, fmt.Errorf("could not create metric exporter: %w", err)
 	}
 
-	periodicReader := metricsdk.NewPeriodicReader(metricsExporter, metricsdk.WithInterval(5*time.Second))
+	periodicReader := metricsdk.NewPeriodicReader(metricsExporter, metricsdk.WithInterval(1*time.Second))
 
 	batchSpanProcessor := sdktrace.NewSimpleSpanProcessor(exporter)
 	tracerProvider := sdktrace.NewTracerProvider(

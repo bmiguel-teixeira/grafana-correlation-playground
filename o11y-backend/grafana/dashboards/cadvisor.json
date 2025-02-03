@@ -810,8 +810,8 @@
     },
     "timepicker": {},
     "timezone": "",
-    "title": "Cadvisor exporter",
-    "uid": "pMEd7m0Mz",
+    "title": "cadvisor",
+    "uid": "cadvisor",
     "version": 1,
     "description": "Simple exporter for cadvisor only"
   }
