@@ -101,7 +101,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.5.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -169,7 +169,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.5.0",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -187,50 +187,6 @@
       ],
       "title": "Instant Error Rate",
       "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 16,
-        "w": 24,
-        "x": 0,
-        "y": 15
-      },
-      "id": 2,
-      "options": {
-        "dedupStrategy": "none",
-        "enableInfiniteScrolling": false,
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": false,
-        "showTime": false,
-        "sortOrder": "Descending",
-        "wrapLogMessage": false
-      },
-      "pluginVersion": "11.5.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "direction": "backward",
-          "editorMode": "code",
-          "expr": "{service_name=~\"$application\"}",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "Http Requests",
-      "type": "logs"
     }
   ],
   "preload": false,
@@ -241,7 +197,6 @@
     "list": [
       {
         "allValue": ".+",
-        "allowCustomValue": true,
         "current": {
           "text": [
             "client"
@@ -267,13 +222,13 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "http_requests",
   "uid": "http_requests",
-  "version": 11,
+  "version": 2,
   "weekStart": ""
 }
